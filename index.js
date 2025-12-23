@@ -1,43 +1,37 @@
-const Discord = require("discord.js");
-const { Client, Collection } = require("discord.js");
-const client = new Client({ intents: 53608447});
-const { loadSlash } = require("./handlers/slashHandler")
-require("dotenv").config();
+require('dotenv').config();
 
-client.on("interactionCreate", async (interaction) => {
-    if(!interaction.isCommand()) return;
-    const cmd = client.slashCommands.get(interaction.commandName);
-    if(!cmd) return;
+const { Client, GatewayIntentBits } = require('discord.js');
+const slashHandler = require('./src/handlers/slashHandler');
 
-    const args = [];
-    for(let option of interaction.options.data){
-        if(option.type --- 1){
-            if(option.name) args.push(option.name);
-            option.options?.forEach((x) => {
-                if(x.value) args.push(option.value);
-            });
-        } else if(option.value) args.push(option.value);
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildVoiceStates
+    ]
+});
+
+// Slash commands
+client.slashCommands = new Map();
+slashHandler.loadSlash(client);
+
+client.on('clientReady', () => {
+    console.log(`🎵 Bot conectado como ${client.user.tag}`);
+});
+
+client.on('interactionCreate', async interaction => {
+    if (!interaction.isChatInputCommand()) return;
+
+    const command = client.slashCommands.get(interaction.commandName);
+    if (!command) return;
+
+    try {
+        await command.execute(interaction, client);
+    } catch (err) {
+        console.error(err);
+        if (!interaction.replied) {
+            await interaction.reply({ content: '❌ Error ejecutando el comando', ephemeral: true });
+        }
     }
-    cmd.execute(client, interaction. args);
-})
+});
 
-client.slashCommands = new Collection();
-
-(async () => {
-    await client
-    .login(process.env.TOKEN)
-    .catch((err) => 
-        console.error(`» | Error al iniciar el bot => ${err}`)
-        );
-})();
-
-client.on("clientReady", async() => {
-    await loadSlash(client)
-    .then(() => {
-        console.log("» | Comandos cargados con exito");
-    })
-    .catch((err) =>
-        console.error(`» | Error al cargar los comandos => ${err}`));
-    console.log(`» | Bot encendido con la cuenta de: ${client.user.tag}`)
-})
-
+client.login(process.env.TOKEN);
